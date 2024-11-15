@@ -1,18 +1,24 @@
 % main.pl
-:- [dbConnection].          % Load the database connection module
+:- [dbConnection].
 
-% Example main predicate to test the connection and perform a task
-main :-
-    connect_to_database,
-    test_db_connection,
-    disconnect_from_database.
 
-% Predicate to verify the connection by querying the Staff table
-test_db_connection :-
-    format("Fetching data from Staff table:~n"),
-    odbc_query(my_db, 'SELECT StaffId, LicenseNumber, Specialization, Email, Status FROM Staff', 
-               row(StaffId, LicenseNumber, Specialization, Email, Status)),
-    format("StaffId: ~w, LicenseNumber: ~w, Specialization: ~w, Email: ~w, Status: ~w~n", 
-           [StaffId, LicenseNumber, Specialization, Email, Status]),
-    fail.
-test_db_connection.
+main(Date) :-
+    dbConnection:connect_to_database,
+    test_loaded_staff,  % Print loaded staff data
+    dbConnection:load_available_slots(Date),  % Load agenda_staff/3 facts
+    test_loaded_agenda_staff,  % Print agenda_staff/3 facts
+    dbConnection:disconnect_from_database.
+
+% Test: Display loaded staff data
+test_loaded_staff :-
+    dbConnection:load_staff_data,  % Load staff data
+    findall((StaffId, LicenseNumber, Specialization, Email, Status), 
+            staff(StaffId, LicenseNumber, Specialization, Email, Status), 
+            StaffResults),
+    format("Loaded Staff: ~w~n", [StaffResults]).
+
+% Test: Display loaded free_agenda_staff/3 facts
+test_loaded_agenda_staff :-
+    findall((StaffId, Date, Slots), free_agenda_staff(StaffId, Date, Slots), AgendaResults),
+    format("Loaded Free Agenda Staff: ~w~n", [AgendaResults]).
+
