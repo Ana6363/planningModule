@@ -1,16 +1,11 @@
 :- module(dbConnection, [
     connect_to_database/0,
-    disconnect_from_database/0,
-    load_staff_data/0,
-    load_available_slots/1,
-    free_agenda_staff/3,
-    staff/5,
-    intersect_all_agendas/3
+    disconnect_from_database/0
 ]).
 
+
+% -------------------------------------------DATABASE CONNECTION AND DATA RETRIVAL---------------------------------------
 :- use_module(library(odbc)).
-:- dynamic staff/5. 
-:- dynamic free_agenda_staff/3.
 
 % Connect to the database
 connect_to_database :-
@@ -20,84 +15,116 @@ connect_to_database :-
 disconnect_from_database :-
     odbc_disconnect(my_db).
 
-% Load staff information from the Staff table
-load_staff_data :-
-    retractall(staff(_, _, _, _, _)),
-    odbc_query(my_db, 'SELECT StaffId, LicenseNumber, Specialization, Email, Status FROM Staff',
-               row(StaffId, LicenseNumber, Specialization, Email, Status)),
-    assertz(staff(StaffId, LicenseNumber, Specialization, Email, Status)),
-    fail.
-load_staff_data.
+:- dynamic operation_data/6.
+:- dynamic sorted_operation_request/6.
+:- dynamic free_slot/4.
 
-% Load available slots for a specific date from AvailableSlots table
-load_available_slots(Date) :-
-    retractall(free_agenda_staff(_, _, _)),
-    format(atom(Query), 'SELECT StaffId, StartTime, EndTime FROM AvailableSlots WHERE StartTime LIKE "~w%"', [Date]),
-    findall((StaffId, StartMinutes, EndMinutes, DateNumber),
-        (
-            odbc_query(my_db, Query, row(StaffId, StartTime, EndTime)),
-            time_to_minutes(StartTime, StartMinutes),
-            time_to_minutes(EndTime, EndMinutes),
-            StartTime = timestamp(Year, Month, Day, _, _, _, _),
-            format(atom(DateStr), '~w~|~w~2+~|~w~2+', [Year, Month, Day]),
-            atom_number(DateStr, DateNumber)
-        ),
-        SlotsData
-    ),
-    group_slots_by_staff_and_date(SlotsData).
+load_operation_data :-
+    connect_to_database,
+    retractall(operation_data(_, _, _, _, _, _)),
+    odbc_query(my_db,
+               '{CALL GetOperationData()}',
+               row(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, Specializations)),
+    split_specializations(Specializations, SpecializationList),
+    assertz(operation_data(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, SpecializationList)),
+    fail;
+    disconnect_from_database.
 
-% Group slots by staff and date
-group_slots_by_staff_and_date(SlotsData) :-
-    findall((StaffId, DateNumber),
-        member((StaffId, _, _, DateNumber), SlotsData),
-        UniquePairs),
-    list_to_set(UniquePairs, UniqueStaffDates),
+split_specializations(SpecializationsString, SpecializationList) :-
+    (   SpecializationsString == null
+    ->  SpecializationList = []
+    ;   split_string(SpecializationsString, ";", "", SpecializationPairs),
+        maplist(parse_specialization, SpecializationPairs, SpecializationList)
+    ).
+
+parse_specialization(SpecializationPair, (Name, NeededPersonnel)) :-
+    split_string(SpecializationPair, ":", "", [Name, NeededPersonnelString]),
+    atom_number(NeededPersonnelString, NeededPersonnel).
+
+load_and_sort_operation_requests :-
+    connect_to_database,
+    retractall(sorted_operation_request(_, _, _, _, _, _)),
+    findall(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status),
+        odbc_query(my_db,
+                   'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status FROM OperationRequests',
+                   row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status)),
+        Requests),
+    sort_requests_by_priority_and_deadline(Requests, SortedRequests),
+    maplist(assert_sorted_request, SortedRequests),
+    disconnect_from_database.
+
+assert_sorted_request(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status)) :-
+    format_deadline(Deadline, FormattedDeadline),
+    assertz(sorted_operation_request(RequestId, FormattedDeadline, Priority, RecordNumber, StaffId, Status)).
+
+sort_requests_by_priority_and_deadline(Requests, SortedRequests) :-
+    get_today_date(Today),
+    % Convert requests to sortable format
+    maplist(convert_to_sortable(Today), Requests, SortableRequests),
+    % Sort by priority and deadline
+    keysort(SortableRequests, SortedSortableRequests),
+    % Extract sorted requests
+    maplist(extract_request, SortedSortableRequests, SortedRequests).
+
+convert_to_sortable(Today, row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status),
+                    SortKey-row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status)) :-
+    priority_value(Priority, PriorityValue),
+    format_deadline(Deadline, FormattedDeadline),
+    days_difference(Today, FormattedDeadline, DaysUntilDeadline),
+    SortKey = PriorityValue-DaysUntilDeadline.
+
+extract_request(_-Request, Request).
+
+priority_value('HIGH', 1).
+priority_value('MEDIUM', 2).
+priority_value('LOW', 3).
+
+format_deadline(timestamp(Year, Month, Day, _, _, _, _), FormattedDeadline) :-
+    format(atom(FormattedDeadlineAtom), '~d~|~`0t~d~2+~|~`0t~d~2+', [Year, Month, Day]),
+    atom_number(FormattedDeadlineAtom, FormattedDeadline).
+
+days_difference(Today, Deadline, Difference) :-
+    Difference is Deadline - Today.
+
+get_today_date(Today) :-
+    get_time(Now),
+    stamp_date_time(Now, DateTime, 'UTC'),
+    date_time_value(year, DateTime, Year),
+    date_time_value(month, DateTime, Month),
+    date_time_value(day, DateTime, Day),
+    format(atom(TodayAtom), '~w~|~`0t~w~2+~|~`0t~w~2+', [Year, Month, Day]),
+    atom_number(TodayAtom, Today).
+
+fetch_occupied_slots(RoomId, Date, OccupiedSlots) :-
+    connect_to_database,
+    format(atom(Query), '{CALL GetOccupiedTimeSlots("~w", "~w")}', [RoomId, Date]),
+    findall((StartMinute, EndMinute),
+        odbc_query(my_db, Query, row(StartMinute, EndMinute)),
+        OccupiedSlots),
+    disconnect_from_database.
+
+generate_and_save_free_slots(RoomId, Date, OccupiedSlots) :-
+    find_free_intervals(480, 1200, OccupiedSlots, FreeIntervals),
+    retractall(free_slot(RoomId, Date, _, _)),
     forall(
-        member((StaffId, DateNumber), UniqueStaffDates),
+        member((FreeStart, FreeEnd), FreeIntervals),
         (
-            findall((StartMinutes, EndMinutes),
-                member((StaffId, StartMinutes, EndMinutes, DateNumber), SlotsData),
-                Slots),
-            assertz(free_agenda_staff(StaffId, DateNumber, Slots))
+            assertz(free_slot(RoomId, Date, FreeStart, FreeEnd))
         )
     ).
 
-% Utility to convert SQL timestamp to minutes since midnight
-time_to_minutes(timestamp(_, _, _, Hours, Minutes, _, _), TotalMinutes) :-
-    TotalMinutes is Hours * 60 + Minutes.
+find_free_intervals(StartOfDay, EndOfDay, [], [(StartOfDay, EndOfDay)]) :- !.
+find_free_intervals(StartOfDay, EndOfDay, [(StartOccupied, EndOccupied) | Rest], FreeIntervals) :-
+    StartOfDay < StartOccupied,
+    NextStart is EndOccupied,
+    find_free_intervals(NextStart, EndOfDay, Rest, RemainingIntervals),
+    FreeIntervals = [(StartOfDay, StartOccupied) | RemainingIntervals].
+find_free_intervals(StartOfDay, EndOfDay, [(StartOccupied, EndOccupied) | Rest], FreeIntervals) :-
+    StartOfDay >= StartOccupied,
+    NextStart is max(StartOfDay, EndOccupied),
+    find_free_intervals(NextStart, EndOfDay, Rest, FreeIntervals).
 
-% Intersect all agendas for a list of staff
-intersect_all_agendas([], _, []) :- !.
-intersect_all_agendas([StaffId], Date, FreeSlots) :- 
-    normalize_date(Date, NormalizedDate),
-    dbConnection:free_agenda_staff(StaffId, NormalizedDate, FreeSlots), !.
-intersect_all_agendas([StaffId | Rest], Date, Intersection) :-
-    normalize_date(Date, NormalizedDate),
-    dbConnection:free_agenda_staff(StaffId, NormalizedDate, Slots1),
-    intersect_all_agendas(Rest, NormalizedDate, Slots2),
-    intersect_2_agendas(Slots1, Slots2, Intersection).
 
-% Helper to normalize the date format
-normalize_date(Date, Date) :- 
-    integer(Date), !.  % If already normalized, return as-is
-normalize_date(DateString, DateNumber) :-
-    split_string(DateString, "-", "", [Year, Month, Day]),
-    format(atom(DateAtom), "~w~|~w~2+~|~w~2+", [Year, Month, Day]),
-    atom_number(DateAtom, DateNumber).
 
-% Find the intersection between two sets of slots
-intersect_2_agendas([], _, []).
-intersect_2_agendas([Slot1 | Rest1], Slots2, Intersection) :-
-    findall(
-        (MaxStart, MinEnd),
-        (member(Slot2, Slots2), intersect_slots(Slot1, Slot2, (MaxStart, MinEnd))),
-        IntersectedSlots
-    ),
-    intersect_2_agendas(Rest1, Slots2, RestIntersection),
-    append(IntersectedSlots, RestIntersection, Intersection).
 
-% Calculate the intersection of two individual slots
-intersect_slots((Start1, End1), (Start2, End2), (MaxStart, MinEnd)) :-
-    MaxStart is max(Start1, Start2),
-    MinEnd is min(End1, End2),
-    MaxStart < MinEnd.
+
