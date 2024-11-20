@@ -53,8 +53,8 @@ parse_specialization(SpecializationPair, (Name, NeededPersonnel)) :-
 load_and_fetch_operation_requests(InputDate) :-
     connect_to_database,
     retractall(operation_request(_, _, _, _, _, _, _)),
-    format(atom(Query),
-           'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType FROM OperationRequests WHERE Deadline > \'~w\' LIMIT 7',
+format(atom(Query),
+       'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType FROM OperationRequests WHERE Deadline > \'~w\' AND Status = \'PENDING\' LIMIT 4',
            [InputDate]),
     findall(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType),
         odbc_query(my_db, Query, row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)),
@@ -147,103 +147,121 @@ format_input_to_number(DateInput, DateNumber) :-
 
 schedule_all_surgeries(Room, Date, BestSchedule, EarliestFinishTime) :-
     write('DEBUG: Fetching all operation requests...'), nl,
-    findall(Op, operation_request(_, _, _, _, _, _, Op), Operations),
+    findall((OpId, OpName), operation_request(OpId, _, _, _, _, _, OpName), Operations),
     write('DEBUG: Operations fetched: '), write(Operations), nl,
-    % Fetch room slots with proper debugging
-    write('DEBUG: Fetching room slots for Room='), write(Room), write(', Date='), write(Date), nl,
+    length(Operations, NumOperations),
+    write('DEBUG: Total number of operations fetched: '), write(NumOperations), nl,
+    write('DEBUG: Fetching room slots for Room='), write(Room), write(', Date='), nl,
     format_input_to_number(Date, DateNumber),
     findall((Start, End),
             dbConnection:free_slot(Room, DateNumber, Start, End),
             RoomSlots),
-    write('DEBUG: Room slots fetched: '), write(RoomSlots), nl, % Removed second conflicting findall
-    write('DEBUG: Generating all permutations of operations...'), nl,
-    findall(Perm, permutation(Operations, Perm), Permutations),
-    write('DEBUG: Generated permutations: '), length(Permutations, Len), write(Len), write(' permutations'), nl,
+    write('DEBUG: Room slots fetched: '), write(RoomSlots), nl,
+    write('DEBUG: Generating all possible permutations...'), nl,
+    findall(Permutation, permutation(Operations, Permutation), Permutations),
+    write('DEBUG: Generated permutations:'), nl,
+    write(Permutations), nl,
+    write('DEBUG: Total permutations generated: '), length(Permutations, PermutationCount), write(PermutationCount), nl,
     find_best_schedule(Permutations, RoomSlots, Date, Room, BestSchedule, EarliestFinishTime),
-    write('DEBUG: Best schedule: '), write(BestSchedule), nl,
+    preprocess_schedule(BestSchedule, PreprocessedSchedule),
+    filter_best_schedule(PreprocessedSchedule, ValidBestSchedule),
+    display_schedule_and_confirm(ValidBestSchedule, Date, Room),
     write('DEBUG: Earliest finish time: '), write(EarliestFinishTime), nl.
 
+
+custom_subset([], []).
+custom_subset([H | T], [H | SubT]) :- custom_subset(T, SubT).
+custom_subset([_ | T], SubT) :- custom_subset(T, SubT).
+
+print_subsets([]).
+print_subsets([H]) :- 
+    write('    '), write(H), nl. % For the last subset (no trailing comma)
+print_subsets([H | T]) :- 
+    write('    '), write(H), write(','), nl, 
+    print_subsets(T).
+
 find_best_schedule([], _, _, _, [], 1300) :-
-    write('DEBUG: No more permutations to evaluate. Initial best schedule is empty with finish time 1300.'), nl.
-find_best_schedule([Perm | Perms], RoomSlots, Date, Room, BestSchedule, EarliestFinishTime) :-
-    write('DEBUG: Evaluating permutation: '), write(Perm), nl,
-    (evaluate_schedule(Perm, RoomSlots, Date, Room, Schedule, FinishTime) ->
-        write('DEBUG: Valid schedule found for permutation: '), write(Schedule), nl,
-        write('DEBUG: Finish time for this schedule: '), write(FinishTime), nl
-    ;   write('DEBUG: Permutation failed to produce a valid schedule.'), nl, fail),
-    find_best_schedule(Perms, RoomSlots, Date, Room, PrevBestSchedule, PrevEarliestFinishTime),
-    write('DEBUG: Comparing schedules...'), nl,
-    write('DEBUG: Current schedule: '), write(Schedule), write(' with finish time: '), write(FinishTime), nl,
-    write('DEBUG: Previous best schedule: '), write(PrevBestSchedule), write(' with finish time: '), write(PrevEarliestFinishTime), nl,
-    (FinishTime < PrevEarliestFinishTime ->
-        write('DEBUG: Current schedule is better. Updating best schedule.'), nl,
+    write('DEBUG: No more combinations to evaluate. Initial best schedule is empty with finish time 1300.'), nl.
+
+find_best_schedule([Combination | Combinations], RoomSlots, Date, Room, BestSchedule, EarliestFinishTime) :-
+    write('DEBUG: Evaluating combination: '), write(Combination), nl,
+    (evaluate_schedule(Combination, RoomSlots, Date, Room, Schedule, FinishTime) ->
+        write('DEBUG: Valid schedule found: '), write(Schedule), nl,
+        write('DEBUG: Finish time: '), write(FinishTime), nl
+    ;   write('DEBUG: Combination failed to produce a valid schedule.'), nl,
+        Schedule = [], FinishTime = 1300), % Default invalid values
+
+    find_best_schedule(Combinations, RoomSlots, Date, Room, PrevBestSchedule, PrevEarliestFinishTime),    
+    length(Schedule, Len1),
+    length(PrevBestSchedule, Len2),
+    compare_schedules(Schedule, Len1, FinishTime, PrevBestSchedule, Len2, PrevEarliestFinishTime, BestSchedule, EarliestFinishTime).
+
+compare_schedules(Schedule, Len1, FinishTime, PrevBestSchedule, Len2, PrevEarliestFinishTime, BestSchedule, EarliestFinishTime) :-
+    (Len1 > Len2 ->
+        write('DEBUG: Current schedule fits more operations. Updating best schedule.'), nl,
+        BestSchedule = Schedule,
+        EarliestFinishTime = FinishTime
+    ; Len1 == Len2, FinishTime < PrevEarliestFinishTime ->
+        write('DEBUG: Current schedule finishes earlier. Updating best schedule.'), nl,
         BestSchedule = Schedule,
         EarliestFinishTime = FinishTime
     ;   write('DEBUG: Previous best schedule remains the best.'), nl,
         BestSchedule = PrevBestSchedule,
         EarliestFinishTime = PrevEarliestFinishTime).
 
-
 evaluate_schedule([], _, _, _, [], 0) :-
     write('DEBUG: Empty schedule. Finish time is 0.'), nl.
-evaluate_schedule([Op | Ops], RoomSlots, Date, Room, [(Op, StartTime, EndTime) | RestSchedule], FinishTime) :-
-    write('DEBUG: Evaluating operation: '), write(Op), nl,
-    operation_total_duration(Op, Duration),
-    write('DEBUG: Total duration for operation '), write(Op), write(': '), write(Duration), nl,
-    operation_data(_, Op, _, _, _, StaffRequirements),
-    write('DEBUG: Staff requirements for operation '), write(Op), write(': '), write(StaffRequirements), nl,
-    % Find a valid slot without modifying RoomSlots prematurely
+
+evaluate_schedule([(RequestId, OpName) | Ops], RoomSlots, Date, Room, [(RequestId, OpName, StartTime, EndTime) | RestSchedule], FinishTime) :-
+    write('DEBUG: Evaluating operation: '), write(OpName), nl,
+    operation_total_duration(OpName, Duration), % Use only the operation name for duration
+    write('DEBUG: Total duration for operation '), write(OpName), write(': '), write(Duration), nl,
+    operation_data(_, OpName, _, _, _, StaffRequirements), % Use only the operation name for staff requirements
+    write('DEBUG: Staff requirements for operation '), write(OpName), write(': '), write(StaffRequirements), nl,
     (intersect_room_staff(RoomSlots, Date, Duration, StaffRequirements, StartTime, EndTime) ->
-        write('DEBUG: Found valid slot for operation '), write(Op), 
-        write(': Start='), write(StartTime), write(', End='), write(EndTime), nl,
-        % Confirm and remove the assigned time slot
+        write('DEBUG: Found valid slot: Start='), write(StartTime), write(', End='), write(EndTime), nl,
         remove_time_slot(RoomSlots, (StartTime, EndTime), UpdatedRoomSlots),
-        % Continue scheduling remaining operations
         evaluate_schedule(Ops, UpdatedRoomSlots, Date, Room, RestSchedule, RestFinishTime),
         FinishTime is max(EndTime, RestFinishTime)
-    ;   % Fail if no valid slot is found
-        write('DEBUG: No valid slot found for operation '), write(Op), nl, fail).
-
-
-
-
+    ;   write('DEBUG: No valid slot found for operation '), write(OpName), nl,
+        evaluate_schedule(Ops, RoomSlots, Date, Room, RestSchedule, FinishTime)).
 
 intersect_room_staff(RoomSlots, Date, Duration, StaffRequirements, StartTime, EndTime) :-
     write('DEBUG: Intersecting all staff agendas for requirements: '), write(StaffRequirements), nl,
     intersect_all_staff_agendas(StaffRequirements, Date, StaffSlots),
     write('DEBUG: Combined staff slots: '), write(StaffSlots), nl,
-    % Intersect RoomSlots with combined StaffSlots
     write(RoomSlots),
     intersect_2_agendas(RoomSlots, StaffSlots, ValidSlots),
     write('DEBUG: Valid slots after intersection with room slots: '), write(ValidSlots), nl,
     remove_unf_intervals(Duration, ValidSlots, [(StartTime, EndTime) | _]),
     write('DEBUG: Selected slot: Start='), write(StartTime), write(', End='), write(EndTime), nl.
 
+intersect_all_staff_agendas([], _, []).
 
-intersect_all_staff_agendas([], _, []). % Base case: no roles left, empty combined agenda.
 intersect_all_staff_agendas(StaffRequirements, _, CombinedAgenda) :-
-    % Collect agendas for all roles
     findall(RoleAgenda,
             (
-                member((Role, _), StaffRequirements), % Iterate through each role
+                % Iterate through each role in the staff requirements
+                member((Role, _), StaffRequirements),
                 write('DEBUG: Calculating agenda for role: '), write(Role), nl,
-                normalize_role(Role, NormalizedRole), % Normalize role name
+                normalize_role(Role, NormalizedRole),
                 findall((Start, End),
                         (
-                            staff(_, _, Specialization, _, Slots),
-                            normalize_role(Specialization, NormalizedSpec),
-                            sub_atom(NormalizedSpec, 0, _, 0, NormalizedRole),
-                            member((Start, End), Slots)
+                            staff(_, _, Specialization, _, Slots), % Access staff slots
+                            normalize_role(Specialization, NormalizedSpec), % Normalize specialization name
+                            sub_atom(NormalizedSpec, 0, _, 0, NormalizedRole), % Match role with specialization
+                            member((Start, End), Slots) % Collect matching slots
                         ),
                         RoleAgendaRaw),
-                deduplicate_slots(RoleAgendaRaw, RoleAgenda),
+                write('DEBUG: Raw slots for role '), write(NormalizedRole), write(': '), write(RoleAgendaRaw), nl,
+                merge_slots(RoleAgendaRaw, RoleAgenda),
                 write('DEBUG: Calculated agenda for role '), write(NormalizedRole), write(': '), write(RoleAgenda), nl
             ),
             AllAgendas),
 
+    write('DEBUG: Agendas being intersected for all roles: '), write(AllAgendas), nl,
     intersect_all_agendas(AllAgendas, CombinedAgenda),
     write('DEBUG: Combined staff slots: '), write(CombinedAgenda), nl.
-
 
 intersect_all_agendas([], []). % If no agendas, the result is empty.
 intersect_all_agendas([Agenda], Agenda). % A single agenda remains unchanged.
@@ -253,33 +271,36 @@ intersect_all_agendas([Agenda1, Agenda2 | Rest], CombinedAgenda) :-
     % Recursively intersect with the rest of the agendas
     intersect_all_agendas([TempCombined | Rest], CombinedAgenda).
 
-% Intersection of two agendas
 intersect_2_agendas([], _, []) :- !. % Empty first agenda results in no intersections.
 intersect_2_agendas(_, [], []) :- !. % Empty second agenda results in no intersections.
+
 intersect_2_agendas([(Start1, End1) | Rest1], [(Start2, End2) | Rest2], Result) :-
     MaxStart is max(Start1, Start2),
     MinEnd is min(End1, End2),
     (MaxStart < MinEnd ->
-        % Valid overlap; include it in the result
         Result = [(MaxStart, MinEnd) | RestResult],
-        intersect_2_agendas(Rest1, [(Start2, End2) | Rest2], RestResult)
-    ;   % No overlap or degenerate interval
+        % Move to the next interval, advancing based on the earliest end
+        (End1 =< End2 ->
+            intersect_2_agendas(Rest1, [(Start2, End2) | Rest2], RestResult)
+        ;   intersect_2_agendas([(Start1, End1) | Rest1], Rest2, RestResult)
+        )
+    ;
         (End1 =< Start2 ->
             intersect_2_agendas(Rest1, [(Start2, End2) | Rest2], Result)
         ;   intersect_2_agendas([(Start1, End1) | Rest1], Rest2, Result)
         )
     ).
-      
 
 remove_unf_intervals(_, [], []).
-remove_unf_intervals(Duration, [(Start, End) | Rest], [(Start, End) | ValidRest]) :-
-    write('DEBUG: Checking interval: Start='), write(Start), write(', End='), write(End), write(', Duration='), write(Duration), nl,
+
+remove_unf_intervals(Duration, [(Start, End) | Rest], [(Start, AdjustedEnd) | ValidRest]) :-
     End - Start >= Duration,
+    AdjustedEnd is Start + Duration,
     remove_unf_intervals(Duration, Rest, ValidRest).
+
 remove_unf_intervals(Duration, [_ | Rest], ValidRest) :-
     remove_unf_intervals(Duration, Rest, ValidRest).
 
-% Remove a used time slot from a list of slots
 remove_time_slot([], _, []).
 remove_time_slot([(Start, End) | Rest], (UsedStart, UsedEnd), UpdatedSlots) :-
     (UsedEnd =< Start ; UsedStart >= End), % No overlap
@@ -290,7 +311,6 @@ remove_time_slot([(Start, End) | Rest], (UsedStart, UsedEnd), UpdatedSlots) :-
     (UsedEnd < End -> PartialUpdatedSlots = [(UsedEnd, End) | UpdatedRest] ; UpdatedRest = []),
     remove_time_slot(Rest, (UsedStart, UsedEnd), UpdatedRest).
 
-% Define operation_total_duration/2
 operation_total_duration(Operation, TotalDuration) :-
     operation_data(_, Operation, PreparationTime, OperationTime, CleaningTime, _),
     TotalDuration is PreparationTime + OperationTime + CleaningTime,
@@ -302,5 +322,147 @@ normalize_role(Role, NormalizedRole) :-
     exclude(=(32), LowerCodes, CleanCodes), % Remove spaces (ASCII 32)
     atom_codes(NormalizedRole, CleanCodes).
 
-deduplicate_slots(Slots, DeduplicatedSlots) :-
-    sort(Slots, DeduplicatedSlots). % Removes duplicates and sorts intervals.
+merge_slots(RawSlots, MergedSlots) :-
+    % Sort the raw slots by their start time
+    sort(1, @=<, RawSlots, SortedSlots),
+    % Merge overlapping or adjacent slots
+    merge_sorted_slots(SortedSlots, MergedSlots).
+
+merge_sorted_slots([Slot], [Slot]) :- !.
+
+merge_sorted_slots([(Start1, End1), (Start2, End2) | Rest], MergedSlots) :-
+    (End1 >= Start2 -> 
+        % Overlapping or adjacent intervals, merge them
+        NewEnd is max(End1, End2),
+        merge_sorted_slots([(Start1, NewEnd) | Rest], MergedSlots)
+    ;   
+        % No overlap, keep the first interval and continue
+        merge_sorted_slots([(Start2, End2) | Rest], RestMerged),
+        MergedSlots = [(Start1, End1) | RestMerged]
+    ).
+
+filter_best_schedule([], []).
+
+filter_best_schedule([(RequestId, OperationName, StartTime, EndTime) | Rest], [(RequestId, OperationName, StartTime, EndTime) | FilteredRest]) :-
+    number(StartTime), % Ensure StartTime is a valid number
+    number(EndTime),   % Ensure EndTime is a valid number
+    filter_best_schedule(Rest, FilteredRest).
+
+filter_best_schedule([(RequestId, OperationName, StartTime, EndTime) | Rest], FilteredRest) :-
+    \+ number(StartTime), % Exclude if StartTime is not a number
+    \+ number(EndTime),   % Exclude if EndTime is not a number
+    write('DEBUG: Excluded request with invalid times: '), write((RequestId, OperationName, StartTime, EndTime)), nl,
+    filter_best_schedule(Rest, FilteredRest).
+
+preprocess_schedule([], []).
+
+preprocess_schedule([(Id, OperationName, StartTime, EndTime) | Rest], [(QuotedId, QuotedOperationName, StartTime, EndTime) | ProcessedRest]) :-
+    atom(Id), atom(OperationName), % Ensure Id and OperationName are atoms
+    quote_if_needed(Id, QuotedId),
+    quote_if_needed(OperationName, QuotedOperationName),
+    preprocess_schedule(Rest, ProcessedRest).
+
+quote_if_needed(Atom, Atom) :- atom_chars(Atom, Chars), \+ member('-', Chars), !.
+quote_if_needed(Atom, QuotedAtom) :- atom(Atom), !, atom_string(Atom, String), atom_string(QuotedAtom, String).
+
+% ----------------------------------------------UTILITIES-----------------------------------------------------------------
+display_schedule_and_confirm(BestSchedule, Date, Room) :-
+    write('Final Surgery Schedule for Room '), write(Room), write(' on '), write(Date), nl,
+    display_schedule(BestSchedule),
+    write('Do you want to apply this schedule? (yes/no)'), nl,
+    read(Confirmation),
+    (Confirmation == yes ->
+        apply_schedule(BestSchedule, Date, Room)
+    ;   write('Schedule application canceled.'), nl).
+
+display_schedule([]).
+display_schedule([(RequestId, OperationName, StartTime, EndTime) | Rest]) :-
+    write('Request ID: '), write(RequestId), nl,
+    write('Operation: '), write(OperationName), nl,
+    write('Start Time: '), format_time(StartTime), nl,
+    write('End Time: '), format_time(EndTime), nl, nl,
+    display_schedule(Rest).
+
+format_time(Minutes) :-
+    Hours is Minutes // 60,
+    Mins is Minutes mod 60,
+    format('~|~`0t~d~2+:~|~`0t~d~2+', [Hours, Mins]).
+
+apply_schedule(BestSchedule, Date, Room) :-
+    connect_to_database,
+    update_requests_status(BestSchedule),
+    create_appointments_and_phases(BestSchedule, Date, Room),
+    write('Schedule successfully applied!'), nl.
+
+update_requests_status([]).
+update_requests_status([(RequestId, _, _, _) | Rest]) :-
+    format(atom(Query), 'UPDATE OperationRequests SET Status = "ACCEPTED" WHERE RequestId = "~w"', [RequestId]),
+    db_execute(Query), % Use the updated db_execute method
+    update_requests_status(Rest).
+
+
+create_appointments_and_phases([], _, _) :-
+    write('DEBUG: Finished creating appointments and phases.'), nl.
+create_appointments_and_phases([(RequestId, OperationName, StartTime, EndTime) | Rest], Date, Room) :-
+    write('DEBUG: Creating appointment for RequestId='), write(RequestId), nl,
+    create_appointment(RequestId, OperationName, StartTime, EndTime, Date, AppointmentId),
+    write('DEBUG: Appointment created with ID='), write(AppointmentId), nl,
+    write('DEBUG: Inserting phases for AppointmentId='), write(AppointmentId), nl,
+    insert_phases(OperationName, Room, AppointmentId, StartTime, Date),
+    create_appointments_and_phases(Rest, Date, Room).
+
+
+create_appointment(RequestId, OperationName, StartTime, EndTime, Date, AppointmentId) :-
+    generate_random_string(AppointmentId),
+    format_time(StartTime, StartFormatted), % Convert StartTime to HH:MM format
+    format(atom(Schedule), '~w ~w:00', [Date, StartFormatted]), % Only use the start time for the schedule
+    db_fetch('OperationRequests', RequestId, [Patient, Staff]), % Fetch Patient and Staff details
+    format(atom(Query), 
+        'INSERT INTO Appointements (AppointementId, Schedule, Request, Patient, Staff) VALUES ("~w", "~w", "~w", "~w", "~w")', 
+        [AppointmentId, Schedule, RequestId, Patient, Staff]), % Insert only the start time as schedule
+    db_execute(Query).
+
+
+
+insert_phases(OperationName, Room, AppointmentId, StartTime, Date) :-
+    write('DEBUG: Fetching operation data for RequestId='), write(OperationName), nl,
+    operation_data(_, OperationName, PrepTime, SurgeryTime, CleaningTime, _),
+    write('DEBUG: Preparation Time='), write(PrepTime), write(', Surgery Time='), write(SurgeryTime), write(', Cleaning Time='), write(CleaningTime), nl,
+    insert_phase(AppointmentId, Room, 'Preparation', PrepTime, StartTime, Date, PrepEndTime),
+    insert_phase(AppointmentId, Room, 'Surgery', SurgeryTime, PrepEndTime, Date, SurgeryEndTime),
+    insert_phase(AppointmentId, Room, 'Cleaning', CleaningTime, SurgeryEndTime, Date, _).
+
+
+insert_phase(AppointmentId, Room, PhaseType, Duration, StartTime, Date, EndTime) :-
+    generate_random_number(PhaseId),
+    EndTime is StartTime + Duration, 
+    format_time(StartTime, StartFormatted), 
+    format_time(EndTime, EndFormatted),    
+    format(atom(StartDatetime), '~w ~w:00', [Date, StartFormatted]), 
+    format(atom(EndDatetime), '~w ~w:00', [Date, EndFormatted]),
+    format(atom(Query), 
+        'INSERT INTO SurgeryPhaseDataModel (Id, RoomNumber, PhaseType, Duration, StartTime, EndTime, AppointementId) VALUES ("~w", "~w", "~w", "~w", "~w", "~w", "~w")', 
+        [PhaseId, Room, PhaseType, Duration, StartDatetime, EndDatetime, AppointmentId]),
+    write('Executing Phase Insert Query: '), write(Query), nl,
+    db_execute(Query).
+
+db_execute(Query) :-
+    write('Executing Query: '), write(Query), nl, % Debugging output
+    odbc_query(my_db, Query, _).
+
+db_fetch('OperationRequests', RequestId, [RecordNumber, StaffId]) :-
+    format(atom(Query), 'SELECT RecordNumber, StaffId FROM OperationRequests WHERE RequestId = "~w"', [RequestId]),
+    write('Executing Query: '), write(Query), nl, % Debugging output
+    odbc_query(my_db, Query, row(RecordNumber, StaffId)).
+
+generate_random_string(RandomString) :-
+    uuid(RandomString).
+
+generate_random_number(RandomNumber) :-
+    random_between(100000, 999999, RandomNumber). % Generate a 6-digit random number
+
+format_time(Minutes, FormattedTime) :-
+    Hours is Minutes // 60,
+    Mins is Minutes mod 60,
+    format(atom(FormattedTime), '~|~`0t~d~2+:~|~`0t~d~2+', [Hours, Mins]).
+
