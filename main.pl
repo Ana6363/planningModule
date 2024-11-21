@@ -13,3 +13,8 @@ main :-
     dbConnection:schedule_all_surgeries(Room, Date, BestSchedule, EarliestFinishTime),
     dbConnection:disconnect_from_database.
 
+
+% Remove duplicates and keep only unique slots
+unique_slots(RawSlots, UniqueSlots) :-
+    sort(RawSlots, UniqueSlots). % Sort and remove duplicates
+
