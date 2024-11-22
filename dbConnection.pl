@@ -54,7 +54,7 @@ load_and_fetch_operation_requests(InputDate) :-
     connect_to_database,
     retractall(operation_request(_, _, _, _, _, _, _)),
 format(atom(Query),
-       'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType FROM OperationRequests WHERE Deadline > \'~w\' AND Status = \'PENDING\' LIMIT 100',
+       'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType FROM OperationRequests WHERE Deadline > \'~w\' AND Status = \'PENDING\' LIMIT 1000',
            [InputDate]),
     findall(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType),
         odbc_query(my_db, Query, row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)),
@@ -541,18 +541,21 @@ prefix(List, N, Prefix) :-
 % ----------------------------------------------US 6.3.3-----------------------------------------------------------------
 schedule_with_greedy(Room, Date, BestSchedule, EarliestFinishTime) :-
     get_time(StartTime),
-    write('DEBUG: Start time: '), write(Start), nl,
+    write('DEBUG: Start time: '), write(StartTime), nl,
     write('DEBUG: Starting greedy scheduling...'), nl,
-    % Collect operations with durations
-    findall(operation(OpId, OpName, Duration),
+    % Collect operations with durations and staff requirements
+    findall(operation(OpId, OpName, Duration, StaffRequirements),
             (
                 operation_request(OpId, _, _, _, _, _, OpName),
-                operation_total_duration(OpName, Duration)
+                operation_total_duration(OpName, Duration),
+                operation_data(_, OpName, _, _, _, StaffRequirements)
             ),
-            OperationsWithDuration),
-    write('DEBUG: Operations with durations: '), write(OperationsWithDuration), nl,
-    sort(3, @=<, OperationsWithDuration, SortedOperations),
+            OperationsWithRequirements),
+    write('DEBUG: Operations with requirements: '), write(OperationsWithRequirements), nl,
+    % Sort operations by duration
+    sort(3, @=<, OperationsWithRequirements, SortedOperations),
     write('DEBUG: Sorted operations: '), write(SortedOperations), nl,
+    % Get room free slots
     format_input_to_number(Date, DateNumber),
     findall((Start, End),
             dbConnection:free_slot(Room, DateNumber, Start, End),
@@ -562,14 +565,18 @@ schedule_with_greedy(Room, Date, BestSchedule, EarliestFinishTime) :-
         (write('DEBUG: No free slots available for scheduling.'), nl, fail);
         true
     ),
+    % Perform greedy scheduling
     write('DEBUG: Initiating greedy scheduling...'), nl,
     greedy_schedule(SortedOperations, RoomSlots, [], BestSchedule, EarliestFinishTime),
     get_time(EndTime),
-    write('DEBUG: End time: '), write(End), nl,
+    assign_staff_to_schedule(BestSchedule, FinalSchedule),
+    display_schedule_and_confirm(FinalSchedule, Date, Room),
     Duration is EndTime - StartTime,
     write('DEBUG: Schedule completed in '), write(Duration), write(' seconds.'), nl,
     write('DEBUG: Best schedule: '), write(BestSchedule), nl,
-    write('DEBUG: Earliest finish time: '), write(EarliestFinishTime), nl.
+    write('DEBUG: Earliest finish time: '), write(EarliestFinishTime).
+
+
 
 greedy_schedule([], _, BestSchedule, BestSchedule, EarliestFinishTime) :-
     write('DEBUG: No more operations to schedule.'), nl,
@@ -577,11 +584,17 @@ greedy_schedule([], _, BestSchedule, BestSchedule, EarliestFinishTime) :-
     max_list(EndTimes, EarliestFinishTime),
     write('DEBUG: Calculated earliest finish time: '), write(EarliestFinishTime), nl.
 
-greedy_schedule([operation(OpId, OpName, Duration)|Rest], RoomSlots, CurrentSchedule, BestSchedule, EarliestFinishTime) :-
-    write('DEBUG: Attempting to schedule operation: '), write(operation(OpId, OpName, Duration)), nl,
+greedy_schedule([operation(OpId, OpName, Duration, StaffRequirements) | Rest], RoomSlots, CurrentSchedule, BestSchedule, EarliestFinishTime) :-
+    write('DEBUG: Attempting to schedule operation: '), write(operation(OpId, OpName, Duration, StaffRequirements)), nl,
     write('DEBUG: Current room slots: '), write(RoomSlots), nl,
     write('DEBUG: Current schedule: '), write(CurrentSchedule), nl,
-    (   select((SlotStart, SlotEnd), RoomSlots, RemainingSlots),
+    % Compute combined staff agenda
+    intersect_all_staff_agendas(StaffRequirements, _, CombinedAgenda),
+    write('DEBUG: Combined staff agenda: '), write(CombinedAgenda), nl,
+    % Intersect room slots with staff agenda
+    intersect_2_agendas(RoomSlots, CombinedAgenda, AvailableSlots),
+    write('DEBUG: Available slots after intersection: '), write(AvailableSlots), nl,
+    (   select((SlotStart, SlotEnd), AvailableSlots, RemainingSlots),
         SlotStart + Duration =< SlotEnd
     ->
         write('DEBUG: Found suitable slot: '), write((SlotStart, SlotEnd)), nl,
@@ -597,6 +610,7 @@ greedy_schedule([operation(OpId, OpName, Duration)|Rest], RoomSlots, CurrentSche
         write('DEBUG: Could not find a suitable slot for operation: '), write(operation(OpId, OpName, Duration)), nl,
         greedy_schedule(Rest, RoomSlots, CurrentSchedule, BestSchedule, EarliestFinishTime)
     ).
+
 
 update_slots(SlotStart, SlotEnd, SlotEndTime, RemainingSlots, [(SlotEnd, SlotEndTime)|RemainingSlots]) :-
     write('DEBUG: Splitting slot: '), write((SlotStart, SlotEnd, SlotEndTime)), nl,
