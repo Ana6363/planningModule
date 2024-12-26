@@ -1,7 +1,16 @@
 :- module(dbConnection, [
     connect_to_database/0,
-    disconnect_from_database/0
+    operation_request/7,
+    operation_data/6,
+    disconnect_from_database/0,
+    initialize_environment/0,
+    load_operation_data/0,
+    load_and_fetch_operation_requests/2,
+    fetch_occupied_slots/3,
+    generate_and_save_free_slots/3,
+    fetch_staff_with_slots/1
 ]).
+
 
 
 % -------------------------------------------DATABASE CONNECTION AND DATA RETRIVAL---------------------------------------
@@ -33,21 +42,21 @@ load_operation_data :-
     retractall(operation_data(_, _, _, _, _, _)),
     odbc_query(my_db,
                '{CALL GetOperationData()}',
-               row(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, Specializations)),
-    split_specializations(Specializations, SpecializationList),
-    assertz(operation_data(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, SpecializationList)),
+               row(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, OperationRequirements)),
+    split_operationRequirements(OperationRequirements, OperationRequirementList),
+    assertz(operation_data(OperationTypeId, OperationTypeName, PreparationTime, SurgeryTime, CleaningTime, OperationRequirementList)),
     fail;
     disconnect_from_database.
 
-split_specializations(SpecializationsString, SpecializationList) :-
-    (   SpecializationsString == null
-    ->  SpecializationList = []
-    ;   split_string(SpecializationsString, ";", "", SpecializationPairs),
-        maplist(parse_specialization, SpecializationPairs, SpecializationList)
+split_operationRequirements(OperationRequirementsString, OperationRequirementList) :-
+    (   OperationRequirementsString == null
+    ->  OperationRequirementList = []
+    ;   split_string(OperationRequirementsString, ";", "", OperationRequirementPairs),
+        maplist(parse_operationRequirement, OperationRequirementPairs, OperationRequirementList)
     ).
 
-parse_specialization(SpecializationPair, (Name, NeededPersonnel)) :-
-    split_string(SpecializationPair, ":", "", [Name, NeededPersonnelString]),
+parse_operationRequirement(OperationRequirementPair, (Name, NeededPersonnel)) :-
+    split_string(OperationRequirementPair, ":", "", [Name, NeededPersonnelString]),
     atom_number(NeededPersonnelString, NeededPersonnel).
 
 load_and_fetch_operation_requests(InputDate, Limit) :-
