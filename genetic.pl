@@ -129,18 +129,48 @@ gera_geracao(N, G, Pop) :-
     gera_geracao(N1, G, NPopOrd).
 
 combina_populacoes(Pop1, Pop2, PopFinal) :-
-    append(Pop1, Pop2, PopCombined),         % Combine both populations
-    sort(PopCombined, PopUnique),            % Remove duplicates from the combined population
-    ordena_populacao(PopUnique, PopOrd),     % Sort the population by fitness
-    elitism_count(ECount),                   % Get the elitism count (e.g., 2)
-    length(Preserved, ECount),               % Ensure only ECount elements are preserved
-    prefix(Preserved, PopOrd),               % Get the top ECount individuals
-    subtract(PopOrd, Preserved, Remaining),  % Exclude Preserved from Remaining
-    populacao(TamPop),                       % Get the desired population size
-    RemainingSize is TamPop - ECount,        % Evaluate the remaining size
-    prefix(Truncated, Remaining),            % Get the truncated Remaining population
-    length(Truncated, RemainingSize),        % Ensure truncated length is correct
-    append(Preserved, Truncated, PopFinal).  % Combine Preserved with Truncated
+    append(Pop1, Pop2, PopCombined),         % Merge Pop e descendentes
+    sort(PopCombined, PopUnique),            % Remove duplicados
+    ordena_populacao(PopUnique, PopOrd),     % Sort by fitness (ascending)
+    populacao(TamPop),                       % Total Pop
+    P is max(1, TamPop // 5),                % Top `P` (20% of Pop)
+    prefix(Elite, PopOrd),                   % Seleciona top `P` as elite
+    length(Elite, P),                        % verifica q P elite existem
+    subtract(PopOrd, Elite, Restantes),      % Retira os elite 
+    
+    % calcular pesos dos restantes
+    atribuir_pesos(Restantes, PesosAtribuidos),
+    
+    % Sort
+    sort(2, @=<, PesosAtribuidos, PesosOrdenados),
+    write('Pesos Ordenados: '), write(PesosOrdenados), nl,
+    
+    % Select top N-P
+    RestanteTam is TamPop - P,
+    prefix(PesosSelecionados, PesosOrdenados),
+    length(PesosSelecionados, RestanteTam), % Ensure correct count
+    reatribuir_avaliacoes(PesosSelecionados, Restantes, Selecionados), % Reassign original evaluations
+    
+    % Combina elite e N-P
+    append(Elite, Selecionados, Combinado),
+
+    % Sort final
+    ordena_populacao(Combinado, PopFinal),
+    length(PopFinal, TamPop).
+
+atribuir_pesos([], []).
+atribuir_pesos([Ind*Eval|Rest], [Ind*PesoArredondado|RestPesos]) :-
+    random(0.0, 1.0, FatorAleatorio),
+    Peso is Eval * FatorAleatorio,
+    format(atom(PesoStr), '~2f', [Peso]),
+    atom_number(PesoStr, PesoArredondado),   
+    atribuir_pesos(Rest, RestPesos).
+
+reatribuir_avaliacoes([], _, []).
+reatribuir_avaliacoes([Ind*_|RestPesos], Restantes, [Ind*Eval|RestReatribuido]) :-
+    member(Ind*Eval, Restantes),
+    reatribuir_avaliacoes(RestPesos, Restantes, RestReatribuido).
+
 
 gerar_pontos_cruzamento(P1,P2):-
 	gerar_pontos_cruzamento1(P1,P2).
@@ -157,30 +187,27 @@ gerar_pontos_cruzamento1(P1,P2):-
 
 
 cruzamento([], []).
-cruzamento([Ind*_], [Ind]). % If there is only one individual, no crossover occurs.
+cruzamento([Ind*_], [Ind]).
 cruzamento(Pop, NewPop) :-
-    random_permutation(Pop, RandomizedPop), % Randomly shuffle the population
+    random_permutation(Pop, RandomizedPop),
     write('Randomized Population for Crossover: '), write(RandomizedPop), nl,
     cruzamento_pairs(RandomizedPop, NewPop).
 
-
 cruzamento_pairs([], []).
 cruzamento_pairs([Ind1*_, Ind2*_|Resto], [NInd1, NInd2|RestNew]) :-
-    gerar_pontos_cruzamento(P1, P2), % Randomly generate crossover points
+    gerar_pontos_cruzamento(P1, P2),
     prob_cruzamento(Pcruz),
     random(0.0, 1.0, Pc),
-    (Pc =< Pcruz ->
-        % Perform crossover
-        cruzar(Ind1, Ind2, P1, P2, NInd1),
-        cruzar(Ind2, Ind1, P1, P2, NInd2)
-    ;
-        % No crossover; pass original individuals
-        NInd1 = Ind1,
-        NInd2 = Ind2),
+    cruzamento_realizado(Pc, Pcruz, Ind1, Ind2, P1, P2, NInd1, NInd2),
     cruzamento_pairs(Resto, RestNew).
 cruzamento_pairs([Ind*_|Resto], [Ind|RestNew]) :-
-    cruzamento_pairs(Resto, RestNew). % Handle odd-sized populations
+    cruzamento_pairs(Resto, RestNew).
 
+cruzamento_realizado(Pc, Pcruz, Ind1, Ind2, P1, P2, NInd1, NInd2) :-
+    Pc =< Pcruz, !,              % Perform crossover
+    cruzar(Ind1, Ind2, P1, P2, NInd1),
+    cruzar(Ind2, Ind1, P1, P2, NInd2).
+cruzamento_realizado(_, _, Ind1, Ind2, _, _, Ind1, Ind2).
 
 preencheh([],[]).
 
