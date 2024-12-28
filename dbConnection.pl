@@ -2,13 +2,15 @@
     connect_to_database/0,
     operation_request/7,
     operation_data/6,
+    free_slot/4,
     disconnect_from_database/0,
     initialize_environment/0,
     load_operation_data/0,
     load_and_fetch_operation_requests/2,
     fetch_occupied_slots/3,
     generate_and_save_free_slots/3,
-    fetch_staff_with_slots/1
+    fetch_staff_with_slots/1,
+    fetch_occupied_slots_all_rooms/2
 ]).
 
 
@@ -147,6 +149,27 @@ format_input_to_number(DateInput, DateNumber) :-
     atom_number(MonthStr, Month),
     atom_number(DayStr, Day),
     DateNumber is Year * 10000 + Month * 100 + Day.
+
+fetch_occupied_slots_all_rooms(DateString, OccupiedSlots) :-
+    connect_to_database,
+    format(atom(Query), '{CALL GetFreeTimeSlots("~w")}', [DateString]),
+    findall((RoomId, StartMinute, EndMinute),
+        odbc_query(my_db, Query, row(RoomId, StartMinute, EndMinute)),
+        OccupiedSlots),
+    disconnect_from_database.
+
+generate_and_save_free_slots_all_rooms(DateString, FreeSlots) :-
+    retractall(free_slot(_, _, _, _)), % Clear previous free slot records
+    format_input_to_number(DateString, DateNumber),
+    forall(
+        member((RoomId, FreeStart, FreeEnd), FreeSlots),
+        (
+            write('Processing Room: '), write(RoomId), nl,
+            write('Free Slot: ('), write(FreeStart), write(', '), write(FreeEnd), write(')'), nl,
+            assertz(free_slot(RoomId, DateNumber, FreeStart, FreeEnd))
+        )
+    ).
+
 
 % -------------------------------------------US 6.3.1---------------------------------------
 

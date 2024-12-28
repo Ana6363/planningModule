@@ -1,31 +1,26 @@
-:- use_module(dbConnection).
-
 :-dynamic geracoes/1.
 :-dynamic populacao/1.
 :-dynamic prob_cruzamento/1.
 :-dynamic prob_mutacao/1.
 
+elitism_count(1).  % Preserve the top 2 individuals
 
 
-print :-
-    % Print operation_request/7 facts
-    write('Operation Requests:'), nl,
-    forall(
-        operation_request(Id, Type, Room, StartTime, EndTime, Surgeon, Date),
-        format('ID: ~w, Type: ~w, Room: ~w, Start: ~w, End: ~w, Surgeon: ~w, Date: ~w~n', 
-               [Id, Type, Room, StartTime, EndTime, Surgeon, Date])
-    ),
-    nl,
-    % Print operation_data/6 facts
-    write('Operation Data:'), nl,
-    forall(
-        operation_data(Id, Patient, Procedure, Duration, Priority, Date),
-        format('ID: ~w, Patient: ~w, Procedure: ~w, Duration: ~w, Priority: ~w, Date: ~w~n', 
-               [Id, Patient, Procedure, Duration, Priority, Date])
-    ),
-    nl.
 
-% parameteriza  o
+% tarefa(Id,TempoProcessamento,TempConc,PesoPenalizacao).
+tarefa(t1,2,5,1).
+tarefa(t2,4,7,6).
+tarefa(t3,1,11,2).
+tarefa(t4,3,9,3).
+tarefa(t5,3,8,2).
+tarefa(t6,3,8,8).
+tarefa(t7,3,9,2).
+tarefa(t8,7,8,2).
+
+% tarefas(NTarefas).
+tarefas(8).
+
+% parameteriza��o
 inicializa:-write('Numero de novas Geracoes: '),read(NG), 			(retract(geracoes(_));true), asserta(geracoes(NG)),
 	write('Dimensao da Populacao: '),read(DP),
 	(retract(populacao(_));true), asserta(populacao(DP)),
@@ -114,18 +109,38 @@ btroca([X*VX,Y*VY|L1],[Y*VY|L2]):-
 
 btroca([X|L1],[X|L2]):-btroca(L1,L2).
 
+% Base case for stopping the recursion
+gera_geracao(G, G, Pop):- 
+    write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl.
 
-gera_geracao(G,G,Pop):-!,
-	write('Gera  o '), write(G), write(':'), nl, write(Pop), nl.
+gera_geracao(N, G, Pop) :-
+    N < G,
+    write('Processing Generation '), write(N), nl,
+    write('Current Population: '), write(Pop), nl,
+    cruzamento(Pop, NPop1),
+    write('After Crossover: '), write(NPop1), nl,
+    mutacao(NPop1, NPop),
+    write('After Mutation: '), write(NPop), nl,
+    avalia_populacao(NPop, NPopAv),
+    write('After Evaluation: '), write(NPopAv), nl,
+    combina_populacoes(Pop, NPopAv, NPopOrd),
+    write('After Combining Populations: '), write(NPopOrd), nl,
+    N1 is N + 1,
+    gera_geracao(N1, G, NPopOrd).
 
-gera_geracao(N,G,Pop):-
-	write('Gera  o '), write(N), write(':'), nl, write(Pop), nl,
-	cruzamento(Pop,NPop1),
-	mutacao(NPop1,NPop),
-	avalia_populacao(NPop,NPopAv),
-	ordena_populacao(NPopAv,NPopOrd),
-	N1 is N+1,
-	gera_geracao(N1,G,NPopOrd).
+combina_populacoes(Pop1, Pop2, PopFinal) :-
+    append(Pop1, Pop2, PopCombined),         % Combine both populations
+    sort(PopCombined, PopUnique),            % Remove duplicates from the combined population
+    ordena_populacao(PopUnique, PopOrd),     % Sort the population by fitness
+    elitism_count(ECount),                   % Get the elitism count (e.g., 2)
+    length(Preserved, ECount),               % Ensure only ECount elements are preserved
+    prefix(Preserved, PopOrd),               % Get the top ECount individuals
+    subtract(PopOrd, Preserved, Remaining),  % Exclude Preserved from Remaining
+    populacao(TamPop),                       % Get the desired population size
+    RemainingSize is TamPop - ECount,        % Evaluate the remaining size
+    prefix(Truncated, Remaining),            % Get the truncated Remaining population
+    length(Truncated, RemainingSize),        % Ensure truncated length is correct
+    append(Preserved, Truncated, PopFinal).  % Combine Preserved with Truncated
 
 gerar_pontos_cruzamento(P1,P2):-
 	gerar_pontos_cruzamento1(P1,P2).
@@ -141,17 +156,31 @@ gerar_pontos_cruzamento1(P1,P2):-
 	gerar_pontos_cruzamento1(P1,P2).
 
 
-cruzamento([],[]).
-cruzamento([Ind*_],[Ind]).
-cruzamento([Ind1*_,Ind2*_|Resto],[NInd1,NInd2|Resto1]):-
-	gerar_pontos_cruzamento(P1,P2),
-	prob_cruzamento(Pcruz),random(0.0,1.0,Pc),
-	((Pc =< Pcruz,!,
-        cruzar(Ind1,Ind2,P1,P2,NInd1),
-	  cruzar(Ind2,Ind1,P1,P2,NInd2))
-	;
-	(NInd1=Ind1,NInd2=Ind2)),
-	cruzamento(Resto,Resto1).
+cruzamento([], []).
+cruzamento([Ind*_], [Ind]). % If there is only one individual, no crossover occurs.
+cruzamento(Pop, NewPop) :-
+    random_permutation(Pop, RandomizedPop), % Randomly shuffle the population
+    write('Randomized Population for Crossover: '), write(RandomizedPop), nl,
+    cruzamento_pairs(RandomizedPop, NewPop).
+
+
+cruzamento_pairs([], []).
+cruzamento_pairs([Ind1*_, Ind2*_|Resto], [NInd1, NInd2|RestNew]) :-
+    gerar_pontos_cruzamento(P1, P2), % Randomly generate crossover points
+    prob_cruzamento(Pcruz),
+    random(0.0, 1.0, Pc),
+    (Pc =< Pcruz ->
+        % Perform crossover
+        cruzar(Ind1, Ind2, P1, P2, NInd1),
+        cruzar(Ind2, Ind1, P1, P2, NInd2)
+    ;
+        % No crossover; pass original individuals
+        NInd1 = Ind1,
+        NInd2 = Ind2),
+    cruzamento_pairs(Resto, RestNew).
+cruzamento_pairs([Ind*_|Resto], [Ind|RestNew]) :-
+    cruzamento_pairs(Resto, RestNew). % Handle odd-sized populations
+
 
 preencheh([],[]).
 
