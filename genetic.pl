@@ -1,26 +1,56 @@
-:-dynamic geracoes/1.
-:-dynamic populacao/1.
-:-dynamic prob_cruzamento/1.
-:-dynamic prob_mutacao/1.
+:- dynamic geracoes/1.
+:- dynamic populacao/1.
+:- dynamic prob_cruzamento/1.
+:- dynamic prob_mutacao/1.
 
-elitism_count(1).  % Preserve the top 2 individuals
+% operation_request(Id, Deadline, Priority, Patient, Staff, Status, Type).
+operation_request(op1, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op2, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op3, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op4, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op5, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op6, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op7, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op8, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op9, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
 
+operation_request(op10, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op11, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op12, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op13, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op14, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op15, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op16, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op17, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op18, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op19, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
 
+% operation_data(Id, Type, Duration, Specs).
+operation_data(type1, 'Knee Replacement Surgery', 150, 
+    [('NurseAnaesthetist', 1), ('InstrumentingNurse', 1), ('Orthopedics', 3), 
+     ('Anaesthetist', 1), ('CirculatingNurse', 1), ('MedicalActionAssistant', 1)]).
+operation_data(type2, 'ACL Reconstruction Surgery', 72, 
+    [('NurseAnaesthetist', 1), ('InstrumentingNurse', 1), ('Orthopedics', 3), 
+     ('Anaesthetist', 1), ('CirculatingNurse', 1), ('MedicalActionAssistant', 1)]).
+operation_data(type3, 'Meniscal Injury Treatment', 85, 
+    [('NurseAnaesthetist', 1), ('InstrumentingNurse', 1), ('Orthopedics', 2), 
+     ('Anaesthetist', 1), ('CirculatingNurse', 1), ('MedicalActionAssistant', 1)]).
+operation_data(type4, 'Shoulder Replacement Surgery', 130, 
+    [('NurseAnaesthetist', 1), ('InstrumentingNurse', 1), ('Orthopedics', 3), 
+     ('Anaesthetist', 1), ('CirculatingNurse', 1), ('MedicalActionAssistant', 1)]).
 
-% tarefa(Id,TempoProcessamento,TempConc,PesoPenalizacao).
-tarefa(t1,2,5,1).
-tarefa(t2,4,7,6).
-tarefa(t3,1,11,2).
-tarefa(t4,3,9,3).
-tarefa(t5,3,8,2).
-tarefa(t6,3,8,8).
-tarefa(t7,3,9,2).
-tarefa(t8,7,8,2).
+% free_slots(Room, Start, End).
+free_slots('R001', 480, 1200).
+free_slots('R002', 480, 1200).
+free_slots('R003', 480, 1200).
+free_slots('R004', 480, 1200).
+free_slots('R005', 480, 1200).
+free_slots('R006', 480, 1200).
 
-% tarefas(NTarefas).
-tarefas(8).
+% operation_requests(NOps).
+operation_requests(20).
 
-% parameteriza��o
+% parameteriza  o
 inicializa:-write('Numero de novas Geracoes: '),read(NG), 			(retract(geracoes(_));true), asserta(geracoes(NG)),
 	write('Dimensao da Populacao: '),read(DP),
 	(retract(populacao(_));true), asserta(populacao(DP)),
@@ -42,21 +72,66 @@ gera:-
 	geracoes(NG),
 	gera_geracao(0,NG,PopOrd).
 
-gera_populacao(Pop):-
-	populacao(TamPop),
-	tarefas(NumT),
-	findall(Tarefa,tarefa(Tarefa,_,_,_),ListaTarefas),
-	gera_populacao(TamPop,ListaTarefas,NumT,Pop).
+gera_populacao(Pop) :-
+    populacao(TamPop),
+    findall(Operation, operation_request(Operation, _, _, _, _, _, _), OperationList),
+    gera_populacao(TamPop, OperationList, Pop).
 
-gera_populacao(0,_,_,[]):-!.
+gera_populacao(0, _, []) :- !.
+gera_populacao(TamPop, OperationList, [Ind|RestPop]) :-
+    TamPop1 is TamPop - 1,
+    schedule_operations(OperationList, Ind),
+    gera_populacao(TamPop1, OperationList, RestPop).
 
-gera_populacao(TamPop,ListaTarefas,NumT,[Ind|Resto]):-
-	TamPop1 is TamPop-1,
-	gera_populacao(TamPop1,ListaTarefas,NumT,Resto),
-	gera_individuo(ListaTarefas,NumT,Ind),
-	not(member(Ind,Resto)).
-gera_populacao(TamPop,ListaTarefas,NumT,L):-
-	gera_populacao(TamPop,ListaTarefas,NumT,L).
+schedule_operations(OperationList, Schedule) :-
+    findall(Room, free_slots(Room, _, _), Rooms),
+    initialize_room_schedules(Rooms, RoomSchedules),
+    distribute_operations(OperationList, RoomSchedules, FinalSchedules),
+    calculate_room_weights(FinalSchedules, Schedule).
+
+
+initialize_room_schedules([], []).
+initialize_room_schedules([Room|Rest], [room_schedule(Room, [])|RestSchedules]) :-
+    initialize_room_schedules(Rest, RestSchedules).
+
+% Distribute operations across rooms in a round-robin manner
+distribute_operations([], RoomSchedules, RoomSchedules). % Base case: No operations left to distribute
+distribute_operations(Ops, RoomSchedules, FinalSchedules) :-
+    distribute_one_round(Ops, RoomSchedules, RemainingOps, UpdatedSchedules),
+    distribute_operations(RemainingOps, UpdatedSchedules, FinalSchedules).
+
+% Distribute one round of operations across all rooms
+distribute_one_round([], RoomSchedules, [], RoomSchedules). % No operations to distribute
+distribute_one_round(Ops, [room_schedule(Room, CurrentOps)|RestRooms], RemainingOps, [room_schedule(Room, NewOps)|UpdatedSchedules]) :-
+    random_select(Op, Ops, RemainingOpsAfterSelect),  % Randomly pick an operation
+    operation_request(Op, _, _, _, _, _, Type),
+    operation_data(_, Type, Duration, _),
+    room_finish_time(CurrentOps, CurrentFinishTime),
+    free_slots(Room, _, RoomEnd),
+    NewFinishTime is CurrentFinishTime + Duration,
+    NewFinishTime =< RoomEnd,  % Operation fits
+    append(CurrentOps, [Op], NewOps),
+    distribute_one_round(RemainingOpsAfterSelect, RestRooms, RemainingOps, UpdatedSchedules).
+distribute_one_round(Ops, [room_schedule(Room, CurrentOps)|RestRooms], RemainingOps, [room_schedule(Room, CurrentOps)|UpdatedSchedules]) :-
+    distribute_one_round(Ops, RestRooms, RemainingOps, UpdatedSchedules).
+distribute_one_round(Ops, [], Ops, []). % If all rooms are processed, return remaining operations
+
+
+% Calculate the finish time of the current room
+room_finish_time([], 480). % Start time of the room
+room_finish_time([Op|Ops], FinishTime) :-
+    operation_request(Op, _, _, _, _, _, Type),
+    operation_data(_, Type, Duration, _),
+    room_finish_time(Ops, PrevFinishTime),
+    FinishTime is PrevFinishTime + Duration.
+
+% Calculate weights for all rooms
+calculate_room_weights([], []).
+calculate_room_weights([room_schedule(Room, Ops)|Rest], [room_schedule(Room, Ops)*Weight|RestSchedules]) :-
+    room_finish_time(Ops, FinishTime),
+    Weight is FinishTime,
+    calculate_room_weights(Rest, RestSchedules).
+
 
 gera_individuo([G],1,[G]):-!.
 
@@ -311,3 +386,11 @@ mutacao23(G1,1,[G2|Ind],G2,[G1|Ind]):-!.
 mutacao23(G1,P,[G|Ind],G2,[G|NInd]):-
 	P1 is P-1,
 	mutacao23(G1,P1,Ind,G2,NInd).
+
+	test_gera_populacao :-
+    % Set up required dynamic facts
+    asserta(populacao(1)), % Generate a single population for simplicity
+    findall(Operation, operation_request(Operation, _, _, _, _, _, _), OperationList),
+    gera_populacao(1, OperationList, Pop), % Call the population generation
+    write('Generated Population: '), nl,
+    write(Pop), nl.
