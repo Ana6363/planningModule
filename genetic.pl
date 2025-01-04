@@ -262,7 +262,8 @@ gera_geracao(N, G, Pop) :-
     N < G,
     write('Processing Generation '), write(N), nl,
     write('Current Population: '), write(Pop), nl,
-    cruzamento(Pop, NPop1),
+    strip_weights(Pop,StrippedPop),
+    cruzamento(StrippedPop, NPop1),
     write('After Crossover: '), write(NPop1), nl,
     mutacao(NPop1, NPop),
     write('After Mutation: '), write(NPop), nl,
@@ -471,6 +472,11 @@ eliminah([h|R1],R2):-!,
 eliminah([X|R1],[X|R2]):-
 	eliminah(R1,R2).
 
+strip_weights([], []). % Base case: empty list
+strip_weights([Ind*Weight | Rest], [Ind | StrippedRest]) :-
+    strip_weights(Rest, StrippedRest). % Recursively strip the weights
+
+
 % Perform mutation for the entire population
 mutacao([], []).
 mutacao([Ind|Rest], [NInd|Rest1]) :-
@@ -541,7 +547,7 @@ test_gera_populacao :-
     avalia_populacao(MutatedPop, AvlPop),
     write('Avl Mutated Pop='), nl, % Add a line break for better readability
     write(AvlPop), nl,
-    combina_populacoes(Pop, AvlPop, NPopOrd),
+    combina_populacoes(AvPop, AvlPop, NPopOrd),
     write('Combined Pop='), nl, % Add a line break for better readability
     write(NPopOrd), nl.
 
