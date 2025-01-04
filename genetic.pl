@@ -6,49 +6,83 @@
 :- dynamic original_free_slots/3.
 
 % operation_request(Id, Deadline, Priority, Patient, Staff, Status, Type).
-operation_request(op1, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op2, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op3, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op4, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op5, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op6, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op7, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op8, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op9, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op1, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op2, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op3, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op4, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op5, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op6, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op7, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op8, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op9, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
 
-operation_request(op10, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op11, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op12, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op13, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op14, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op15, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op16, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op17, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op18, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op19, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op10, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op11, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op12, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op13, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op14, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op15, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op16, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op17, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op18, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op19, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
 
-operation_request(op20, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op21, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op22, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op23, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op24, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op25, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op26, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op27, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op28, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op29, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op30, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op20, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op21, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op22, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op23, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op24, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op25, 20251128, 'LOW', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op26, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op27, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op28, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op29, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op30, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
 
-operation_request(op31, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op32, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op33, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op34, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op35, 20251128, HIGH, 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
-operation_request(op36, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op37, 20251128, HIGH, 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
-operation_request(op38, 20251128, HIGH, 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
-operation_request(op39, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
-operation_request(op40, 20251128, HIGH, 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op31, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op32, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op33, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op34, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op35, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op36, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op37, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op38, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op39, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op40, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+
+operation_request(op41, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op42, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op43, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op44, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op45, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op46, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op47, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op48, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op49, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op50, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+
+
+operation_request(op51, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op52, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op53, 20251128, 'HIGH', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op54, 20251128, 'LOW', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op55, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op56, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op57, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op58, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op59, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+
+operation_request(op60, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op61, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op62, 20251128, 'LOW', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op63, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op64, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Knee Replacement Surgery').
+operation_request(op65, 20251128, 'LOW', 00004, D202482952, PENDING, 'Meniscal Injury Treatment').
+operation_request(op66, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op67, 20251128, 'MEDIUM', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op68, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
+operation_request(op69, 20251128, 'LOW', 00004, D202482952, PENDING, 'ACL Reconstruction Surgery').
+operation_request(op70, 20251128, 'HIGH', 00004, D202482952, PENDING, 'Shoulder Replacement Surgery').
 
 % operation_data(Id, Type, Duration, Specs).
 operation_data(type1, 'Knee Replacement Surgery', 120, 
@@ -86,7 +120,7 @@ load_original_free_slots :-
 
 
 % operation_requests(NOps).
-operation_requests(40).
+operation_requests(70).
 
 % parameteriza  o
 inicializa:-write('Numero de novas Geracoes: '),read(NG), 			(retract(geracoes(_));true), asserta(geracoes(NG)),
@@ -134,7 +168,7 @@ nl.
 % Assign a random operation to a room or skip it if no room can fit
 round_robin_assign(Operations, Rooms, Accumulated, FinalAssignments) :-
     random_member(Operation, Operations), % Pick a random operation
-    op_duration(Operation, Duration),
+    op_duration(Operation, Duration,_),
     attempt_assignment(Operation, Duration, Rooms, Accumulated, UpdatedAssignments),
     % Remove the assigned operation from the list
     select(Operation, Operations, RemainingOperations),
@@ -159,8 +193,8 @@ attempt_assignment(_, _, [], Accumulated, Accumulated) :-
     write('Operation could not be assigned'), nl.
 
 % Retrieve the duration of an operation by matching its type
-op_duration(Operation, Duration) :-
-    operation_request(Operation, _, _, _, _, _, Type), 
+op_duration(Operation, Duration, Priority) :-
+    operation_request(Operation, _, Priority, _, _, _, Type),
     operation_data(_, Type, Duration, _).
 
 % Predicate to assign an operation to a room if it fits within the available time slot
@@ -215,26 +249,37 @@ avalia_schedule([Room-Ops|Rest], V) :-   % Process each room in the schedule
     avalia_schedule(Rest, VResto),      % Recursively calculate the weight for the rest of the rooms
     V is Weight + VResto.               % Add the room weight to the total weight
 
-% Helper predicate to accumulate the total weight
-calculate_room_weight(Room, Ops, TotalWeight) :-
+% Helper predicate to accumulate the total weight and calculate the final multiplier
+calculate_room_weight(Room, Ops, FinalWeight) :-
     load_original_free_slots, 
     free_slots(Room, Start, End),  % Get the start and end time for the room
-    calculate_room_weight(Ops, Start, InterimTotalWeight),  % Calculate interim total weight
+    calculate_room_weight(Ops, Start, 1, InterimTotalWeight, FinalMultiplier),  % Calculate interim total weight and multiplier
     (InterimTotalWeight > End ->  % Check if the total weight exceeds the end time
-        TotalWeight is InterimTotalWeight * 2,
+        AdjustedWeight is InterimTotalWeight * 2,
+        FinalWeight is AdjustedWeight * FinalMultiplier,  % Apply the multiplier
         write('Warning: Total weight exceeds end time for Room '), write(Room), nl,
-        write('Original Weight: '), write(InterimTotalWeight), write(', Doubled Weight: '), write(TotalWeight), nl
+        write('Original Weight: '), write(InterimTotalWeight), write(', Adjusted Weight: '), write(AdjustedWeight), nl,
+        write('Final Multiplier: '), write(FinalMultiplier), write(', Final Weight: '), write(FinalWeight), nl
     ;
-        TotalWeight = InterimTotalWeight  % Otherwise, keep the weight as is
+        FinalWeight is InterimTotalWeight * FinalMultiplier,  % Apply the multiplier without adjustment
+        write('Final Multiplier: '), write(FinalMultiplier), write(', Final Weight: '), write(FinalWeight), nl
     ).
 
-
 % Helper predicate to accumulate the total weight, starting from a specific start time
-calculate_room_weight([], Accumulator, Accumulator).  % When no operations left, return accumulated value
-calculate_room_weight([Op|Rest], Accumulator, TotalWeight) :-
-    op_duration(Op, Duration),  % Get the duration of the current operation
+calculate_room_weight([], Accumulator, Multiplier, Accumulator, Multiplier).  % When no operations left, return accumulated value
+calculate_room_weight([Op|Rest], Accumulator, CurrentMultiplier, TotalWeight, FinalMultiplier) :-
+    op_duration(Op, Duration, Priority),  % Get the duration and priority of the current operation
     NewAccumulator is Accumulator + Duration,  % Add duration to the accumulator
-    calculate_room_weight(Rest, NewAccumulator, TotalWeight).  % Continue with the remaining operations
+    adjust_multiplier(CurrentMultiplier, Priority, UpdatedMultiplier),  % Update the multiplier based on priority
+    calculate_room_weight(Rest, NewAccumulator, UpdatedMultiplier, TotalWeight, FinalMultiplier).  % Continue with the remaining operations
+
+% Adjust the multiplier based on the priority
+adjust_multiplier(CurrentMultiplier, 'HIGH', UpdatedMultiplier) :-
+    UpdatedMultiplier is CurrentMultiplier - 0.03.
+adjust_multiplier(CurrentMultiplier, 'MEDIUM', UpdatedMultiplier) :-
+    UpdatedMultiplier is CurrentMultiplier - 0.015.
+adjust_multiplier(CurrentMultiplier, 'LOW', UpdatedMultiplier) :-
+    UpdatedMultiplier is CurrentMultiplier.  % No change for LOW priority
 
 
 ordena_populacao(PopAv,PopAvOrd):-
@@ -515,7 +560,6 @@ pick_two_random_rooms(Ind, Room1, Room2, Rest) :-
     random_select(Room1, Ind, Temp),  % Pick first room
     random_select(Room2, Temp, Rest).  % Pick second room
 
-
 test_gera_populacao :-
     % Retrieve initial free_slots facts
     findall(free_slots(Room, Start, End), free_slots(Room, Start, End), FreeSlotsList),
@@ -526,7 +570,7 @@ test_gera_populacao :-
     load_original_free_slots,
 
     % Set up required dynamic facts
-    asserta(populacao(4)), % Generate a single population for simplicity
+    asserta(populacao(2)), % Generate a single population for simplicity
     findall(Operation, operation_request(Operation, _, _, _, _, _, _), OperationList),
     gera_populacao(Pop), % Call the population generation
     write('Generated Population: '), nl,
