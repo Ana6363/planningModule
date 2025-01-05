@@ -358,6 +358,12 @@ btroca([X|L1],[X|L2]):-btroca(L1,L2).
 gera_geracao(G, G, Pop):- 
     write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl.
 
+gera_geracao(N, G, Pop):- 
+    best_element(Pop,Best),
+    extract_weight(Best,Weight),
+    Weight < 5480,
+    write('Premature Final Geracao '), write(N), write(':'), nl, write(Pop), nl, write(Best).   
+
 gera_geracao(N, G, Pop) :-
     N < G,
     write('Processing Generation '), write(N), nl,
@@ -403,6 +409,10 @@ combina_populacoes(Pop1, Pop2, PopFinal) :-
     % Sort final
     ordena_populacao(Combinado, PopFinal),
     length(PopFinal, TamPop).
+
+best_element([Best|_],Best).
+
+extract_weight(Element*Weight, Weight).
 
 atribuir_pesos([], []).
 atribuir_pesos([Ind*Eval|Rest], [Ind*PesoArredondado|RestPesos]) :-
