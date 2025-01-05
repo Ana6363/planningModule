@@ -101,24 +101,14 @@ inicializa :-
     retractall(operation_mapping(_, _)), % Clear any existing mappings
     bind_operations(OperationList, 1), % Replace UIDs with shorter names
     load_staff_specializations,
-    write('Numero de novas Geracoes: '), read(NG), 	
     (retract(geracoes(_)) ; true), 
-    asserta(geracoes(NG)),
-    write('Dimensao da Populacao: '), read(DP),
+    asserta(geracoes(50)),
     (retract(populacao(_)) ; true), 
-    asserta(populacao(DP)),
-    write('Probabilidade de Cruzamento (%):'), read(P1),
-    PC is P1 / 100, 
+    asserta(populacao(10)),
     (retract(prob_cruzamento(_)) ; true), 
-    asserta(prob_cruzamento(PC)),
-    write('Probabilidade de Mutacao (%):'), read(P2),
-    PM is P2 / 100, 
+    asserta(prob_cruzamento(0.5)),
     (retract(prob_mutacao(_)) ; true), 
-    asserta(prob_mutacao(PM)).
-
-
-
-
+    asserta(prob_mutacao(0.25)).
 
 bind_operations([], _).
 bind_operations([UID|Rest], Index) :-
@@ -323,11 +313,7 @@ btroca([X|L1],[X|L2]):-btroca(L1,L2).
 % Base case for stopping the recursion
 gera_geracao(G, G, Pop, Date, Best):- 
     write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl,
-    best_element(Pop, Best), % Find the best element
-    write('Best Element: '), write(Best), nl,
-    write('Do you want to proceed with inserting this element into the database? (y or no): '), nl,
-    read(Response), % Read user input
-    handle_response(Response, Best, Date).
+    best_element(Pop, Best).
 
 gera_geracao(N, G, Pop, Date, Best) :-
     N < G,
