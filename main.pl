@@ -50,5 +50,7 @@ genetic :-
 
 
 genetict :-
-    genetic:gera. % This starts the genetic algorithm process.
+    write("Enter the date (e.g., '2024-11-17'): "), nl,
+    read(Date),
+    geneticDbData:gera(Date).
 
