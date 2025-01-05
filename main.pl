@@ -1,3 +1,8 @@
+:- use_module(library(http/thread_httpd)).
+:- use_module(library(http/http_dispatch)).
+:- use_module(library(http/http_parameters)).
+
+
 brute :-
     write("Enter the date (e.g., '2024-11-17'): "), nl,
     read(Date),
@@ -49,8 +54,28 @@ genetic :-
 
 
 
-genetict :-
-    write("Enter the date (e.g., '2024-11-17'): "), nl,
-    read(Date),
-    geneticDbData:gera(Date).
+
+:- http_handler('/genetic', handle_genetic, []).
+
+% Create the HTTP server
+server(Port) :-						
+        http_server(http_dispatch, [port(Port)]).
+		
+% Handler for /genetic endpoint
+handle_genetic(Request) :-
+    http_parameters(Request, [date(Date, [atom])]), % Extract 'date' parameter
+    genetict(Date, Output), % Call the genetict predicate with the date
+    format('Content-type: text/plain~n~n'),
+    format('~w~n', [Output]). % Return the output
+
+
+% Define the genetict predicate
+genetict(Date, Output) :-
+    catch( % Handle errors gracefully
+        (   geneticDbData:gera(Date, Result), % Call the gera predicate in geneticDbData
+            format(atom(Output), 'Result: ~w', [Result]) % Format the output
+        ),
+        Error,
+        format(atom(Output), 'Error: ~w', [Error])
+    ).
 

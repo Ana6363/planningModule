@@ -131,7 +131,7 @@ bind_operations([UID|Rest], Index) :-
     bind_operations(Rest, NextIndex).
 
 
-gera(Date):-
+gera(Date,Best):-
 	inicializa,
 	gera_populacao(Pop),
 	write('Pop='),write(Pop),nl,
@@ -139,7 +139,7 @@ gera(Date):-
 	write('PopAv='),write(PopAv),nl,
 	ordena_populacao(PopAv,PopOrd),
 	geracoes(NG),
-	gera_geracao(0,NG,PopOrd,Date).
+	gera_geracao(0,NG,PopOrd,Date,Best).
 
 % Example of generating multiple populations
 gera_populacao(Pop) :-
@@ -321,7 +321,7 @@ btroca([X*VX,Y*VY|L1],[Y*VY|L2]):-
 btroca([X|L1],[X|L2]):-btroca(L1,L2).
 
 % Base case for stopping the recursion
-gera_geracao(G, G, Pop, Date):- 
+gera_geracao(G, G, Pop, Date, Best):- 
     write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl,
     best_element(Pop, Best), % Find the best element
     write('Best Element: '), write(Best), nl,
@@ -329,7 +329,7 @@ gera_geracao(G, G, Pop, Date):-
     read(Response), % Read user input
     handle_response(Response, Best, Date).
 
-gera_geracao(N, G, Pop, Date) :-
+gera_geracao(N, G, Pop, Date, Best) :-
     N < G,
     write('Processing Generation '), write(N), nl,
     write('Current Population: '), write(Pop), nl,
@@ -343,7 +343,7 @@ gera_geracao(N, G, Pop, Date) :-
     combina_populacoes(Pop, NPopAv, NPopOrd),
     write('After Combining Populations: '), write(NPopOrd), nl,
     N1 is N + 1,
-    gera_geracao(N1, G, NPopOrd,Date).
+    gera_geracao(N1, G, NPopOrd,Date,Best).
 
 
 
@@ -352,6 +352,7 @@ handle_response(y, Best, Date) :-
     insert_db(Best, Date). % Proceed with the database insertion
 handle_response(no, _, _) :-
     write('Operation canceled by the user.'), nl. % Cancel insertion
+
 best_element([Best|_], Best).
 
 combina_populacoes(Pop1, Pop2, PopFinal) :-
