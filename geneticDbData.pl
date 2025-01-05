@@ -5,6 +5,10 @@
 :- dynamic free_slots/3.
 :- dynamic original_free_slots/3.
 :- dynamic operation_request/7.
+:- dynamic operation_mapping/2.
+:- dynamic appointement/5.
+:- dynamic surgery_phase/6.
+
 
 
 :- use_module(library(odbc)).
@@ -24,19 +28,33 @@ load_and_fetch_operation_requests(Limit) :-
     retractall(operation_request(_, _, _, _, _, _, _)),
     format(atom(Query),
            'SELECT RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType FROM OperationRequests WHERE Status = \'PENDING\' LIMIT ~w',
-           [InputDate, Limit]),
+           [Limit]), % Corrected argument list
     findall(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType),
             odbc_query(my_db, Query, row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)),
             Requests),
     maplist(store_and_print_request, Requests), % Use the updated store_request predicate without printing
     disconnect_from_database.
 
+% Fetch and store staff IDs and specializations as facts
+load_staff_specializations :-
+    connect_to_database,
+    retractall(staff_specialization(_, _)),  % Clear old facts
+    Query = 'SELECT StaffId, Specialization FROM Staff',
+    findall(row(StaffId, Specialization),
+            odbc_query(my_db, Query, row(StaffId, Specialization)),
+            Rows),
+    maplist(store_staff_specialization, Rows),
+    disconnect_from_database.
 
+% Store each fetched row as a fact
+store_staff_specialization(row(StaffId, Specialization)) :-
+    assertz(staff_specialization(StaffId, Specialization)),
+    write('Inserted: '), write(staff_specialization(StaffId, Specialization)), nl.
 
 % Store each fetched request as a fact and format it correctly
 store_and_print_request(row(RequestId, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)) :-
-    format(atom(FormattedPriority), '\'~w\'', [Priority]),          % Wrap Priority in single quotes
-    format(atom(FormattedOperationType), '\'~w\'', [OperationType]), % Wrap OperationType in single quotes
+    format(atom(FormattedPriority), '~w', [Priority]),          % Wrap Priority in single quotes
+    format(atom(FormattedOperationType), '~w', [OperationType]), % Wrap OperationType in single quotes
     assertz(operation_request(RequestId, Deadline, FormattedPriority, RecordNumber, StaffId, Status, FormattedOperationType)), % Assert the formatted fact
     write('Inserted: '),                                           % Optional debug: print the inserted fact
     write(operation_request(RequestId, Deadline, FormattedPriority, RecordNumber, StaffId, Status, FormattedOperationType)), nl.
@@ -77,31 +95,51 @@ load_original_free_slots :-
     assert(free_slots('R006', 1000, 1200)).
 
 
-% operation_requests(NOps).
-operation_requests(100).
-
-% parameteriza  o
-inicializa:-write('Numero de novas Geracoes: '),read(NG), 			(retract(geracoes(_));true), asserta(geracoes(NG)),
-	write('Dimensao da Populacao: '),read(DP),
-	(retract(populacao(_));true), asserta(populacao(DP)),
-	write('Probabilidade de Cruzamento (%):'), read(P1),
-	PC is P1/100, 
-	(retract(prob_cruzamento(_));true), 	asserta(prob_cruzamento(PC)),
-	write('Probabilidade de Mutacao (%):'), read(P2),
-	PM is P2/100, 
-	(retract(prob_mutacao(_));true), asserta(prob_mutacao(PM)).
-
-
-gera:-
-	inicializa,
+inicializa :-
     load_and_fetch_operation_requests(800),
+    findall(Operation, operation_request(Operation, _, _, _, _, _, _), OperationList),
+    retractall(operation_mapping(_, _)), % Clear any existing mappings
+    bind_operations(OperationList, 1), % Replace UIDs with shorter names
+    load_staff_specializations,
+    write('Numero de novas Geracoes: '), read(NG), 	
+    (retract(geracoes(_)) ; true), 
+    asserta(geracoes(NG)),
+    write('Dimensao da Populacao: '), read(DP),
+    (retract(populacao(_)) ; true), 
+    asserta(populacao(DP)),
+    write('Probabilidade de Cruzamento (%):'), read(P1),
+    PC is P1 / 100, 
+    (retract(prob_cruzamento(_)) ; true), 
+    asserta(prob_cruzamento(PC)),
+    write('Probabilidade de Mutacao (%):'), read(P2),
+    PM is P2 / 100, 
+    (retract(prob_mutacao(_)) ; true), 
+    asserta(prob_mutacao(PM)).
+
+
+
+
+
+bind_operations([], _).
+bind_operations([UID|Rest], Index) :-
+    atomic_list_concat(['op', Index], ShortName),
+    assertz(operation_mapping(ShortName, UID)), % Create the mapping
+    % Replace the original operation_request fact
+    retract(operation_request(UID, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)),
+    assertz(operation_request(ShortName, Deadline, Priority, RecordNumber, StaffId, Status, OperationType)),
+    NextIndex is Index + 1,
+    bind_operations(Rest, NextIndex).
+
+
+gera(Date):-
+	inicializa,
 	gera_populacao(Pop),
 	write('Pop='),write(Pop),nl,
 	avalia_populacao(Pop,PopAv),
 	write('PopAv='),write(PopAv),nl,
 	ordena_populacao(PopAv,PopOrd),
 	geracoes(NG),
-	gera_geracao(0,NG,PopOrd).
+	gera_geracao(0,NG,PopOrd,Date).
 
 % Example of generating multiple populations
 gera_populacao(Pop) :-
@@ -283,10 +321,15 @@ btroca([X*VX,Y*VY|L1],[Y*VY|L2]):-
 btroca([X|L1],[X|L2]):-btroca(L1,L2).
 
 % Base case for stopping the recursion
-gera_geracao(G, G, Pop):- 
-    write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl.
+gera_geracao(G, G, Pop, Date):- 
+    write('Final Geracao '), write(G), write(':'), nl, write(Pop), nl,
+    best_element(Pop, Best), % Find the best element
+    write('Best Element: '), write(Best), nl,
+    write('Do you want to proceed with inserting this element into the database? (y or no): '), nl,
+    read(Response), % Read user input
+    handle_response(Response, Best, Date).
 
-gera_geracao(N, G, Pop) :-
+gera_geracao(N, G, Pop, Date) :-
     N < G,
     write('Processing Generation '), write(N), nl,
     write('Current Population: '), write(Pop), nl,
@@ -300,7 +343,16 @@ gera_geracao(N, G, Pop) :-
     combina_populacoes(Pop, NPopAv, NPopOrd),
     write('After Combining Populations: '), write(NPopOrd), nl,
     N1 is N + 1,
-    gera_geracao(N1, G, NPopOrd).
+    gera_geracao(N1, G, NPopOrd,Date).
+
+
+
+% Handle user response
+handle_response(y, Best, Date) :-
+    insert_db(Best, Date). % Proceed with the database insertion
+handle_response(no, _, _) :-
+    write('Operation canceled by the user.'), nl. % Cancel insertion
+best_element([Best|_], Best).
 
 combina_populacoes(Pop1, Pop2, PopFinal) :-
     append(Pop1, Pop2, PopCombined),         % Merge Pop e descendentes
@@ -344,21 +396,6 @@ reatribuir_avaliacoes([], _, []).
 reatribuir_avaliacoes([Ind*_|RestPesos], Restantes, [Ind*Eval|RestReatribuido]) :-
     member(Ind*Eval, Restantes),
     reatribuir_avaliacoes(RestPesos, Restantes, RestReatribuido).
-
-
-gerar_pontos_cruzamento(P1,P2):-
-	gerar_pontos_cruzamento1(P1,P2).
-
-gerar_pontos_cruzamento1(P1,P2):-
-	operation_requests(N),
-	NTemp is N+1,
-	random(1,NTemp,P11),
-	random(1,NTemp,P21),
-	P11\==P21,!,
-	((P11<P21,!,P1=P11,P2=P21);(P1=P21,P2=P11)).
-gerar_pontos_cruzamento1(P1,P2):-
-	gerar_pontos_cruzamento1(P1,P2).
-
 
 % Perform crossover for the entire population
 cruzamento([], []).  % No individuals left
@@ -428,78 +465,6 @@ handle_swap(Op1, Op2, Elem1, Elem2, _Point, Rest1, Rest2, NumSwaps, NewOp1, NewO
     RemainingSwaps is NumSwaps - 1,  % Decrement the swap counter
     swap_multiple_points(TempOp1, TempOp2, RemainingSwaps, NewOp1, NewOp2).
 
-
-preencheh([], []).
-
-preencheh([_|R1], [h|R2]) :-
-    preencheh(R1, R2).
-
-
-
-sublista(L1,I1,I2,L):-
-	I1 < I2,!,
-	sublista1(L1,I1,I2,L).
-
-sublista(L1,I1,I2,L):-
-	sublista1(L1,I2,I1,L).
-
-sublista1([X|R1],1,1,[X|H]):-!,
-	preencheh(R1,H).
-
-sublista1([X|R1],1,N2,[X|R2]):-!,
-	N3 is N2 - 1,
-	sublista1(R1,1,N3,R2).
-
-sublista1([_|R1],N1,N2,[h|R2]):-
-	N3 is N1 - 1,
-	N4 is N2 - 1,
-	sublista1(R1,N3,N4,R2).
-
-rotate_right(L,K,L1):-
-	operation_requests(N),
-	T is N - K,
-	rr(T,L,L1).
-
-rr(0,L,L):-!.
-
-rr(N,[X|R],R2):-
-	N1 is N - 1,
-	append(R,[X],R1),
-	rr(N1,R1,R2).
-
-
-elimina([],_,[]):-!.
-
-elimina([X|R1],L,[X|R2]):-
-	not(member(X,L)),!,
-	elimina(R1,L,R2).
-
-elimina([_|R1],L,R2):-
-	elimina(R1,L,R2).
-
-insere([],L,_,L):-!.
-insere([X|R],L,N,L2):-
-	operation_requests(T),
-	((N>T,!,N1 is N mod T);N1 = N),
-	insere1(X,N1,L,L1),
-	N2 is N + 1,
-	insere(R,L1,N2,L2).
-
-
-insere1(X,1,L,[X|L]):-!.
-insere1(X,N,[Y|L],[Y|L1]):-
-	N1 is N-1,
-	insere1(X,N1,L,L1).
-
-
-eliminah([],[]).
-
-eliminah([h|R1],R2):-!,
-	eliminah(R1,R2).
-
-eliminah([X|R1],[X|R2]):-
-	eliminah(R1,R2).
-
 strip_weights([], []). % Base case: empty list
 strip_weights([Ind*Weight | Rest], [Ind | StrippedRest]) :-
     strip_weights(Rest, StrippedRest). % Recursively strip the weights
@@ -543,38 +508,58 @@ pick_two_random_rooms(Ind, Room1, Room2, Rest) :-
     random_select(Room1, Ind, Temp),  % Pick first room
     random_select(Room2, Temp, Rest).  % Pick second room
 
-test_gera_populacao :-
-    % Retrieve initial free_slots facts
-    findall(free_slots(Room, Start, End), free_slots(Room, Start, End), FreeSlotsList),
-    write('Initial Free Slots: '), nl,
-    write(FreeSlotsList), nl,
 
-    % Initialize free slots
+%% INSERTIONS ON DATABASE
+
+% Insert the best schedule into the database
+insert_db(Best*_, Date) :-
+    connect_to_database, % Ensure connection to the database
+    initialize_room_start_times, % Initialize room start times
+    process_schedule(Best, Date),
+    disconnect_from_database. % Disconnect after inserting all records
+
+initialize_room_start_times :-
     load_original_free_slots,
+    retractall(room_start_time(_Room, _Start)),
+    free_slots(Room, Start, _End),
+    assertz(room_start_time(Room, Start)),
+    fail.
+initialize_room_start_times.
 
-    % Set up required dynamic facts
-    asserta(populacao(2)), % Generate a single population for simplicity
-    findall(Operation, operation_request(Operation, _, _, _, _, _, _), OperationList),
-    gera_populacao(Pop), % Call the population generation
-    write('Generated Population: '), nl,
-    write(Pop), nl,
-    avalia_populacao(Pop, AvPop),
-    write('Evaluated Pop='), write(AvPop), nl,
-    ordena_populacao(AvPop, OrdPop),
-    write('Order Pop='), write(OrdPop), nl,
-    write('Probabilidade de Cruzamento (%):'), read(P1),
-    PC is P1 / 100,
-    (retract(prob_cruzamento(_)) ; true), asserta(prob_cruzamento(PC)),
-    cruzamento(Pop, NPop1),
-    write('Crossover Pop='), write(NPop1), nl,
-    write('Probabilidade de Mutacao (%):'), read(P2),
-    PM is P2 / 100,
-    (retract(prob_mutacao(_)) ; true), asserta(prob_mutacao(PM)),
-    mutacao(NPop1, MutatedPop),
-    avalia_populacao(MutatedPop, AvlPop),
-    write('Avl Mutated Pop='), nl, % Add a line break for better readability
-    write(AvlPop), nl,
-    combina_populacoes(AvPop, AvlPop, NPopOrd),
-    write('Combined Pop='), nl, % Add a line break for better readability
-    write(NPopOrd), nl.
+process_schedule([], _).
+process_schedule([Room-Ops|Rest], Date) :-
+    process_operations(Room, Ops, Date),
+    process_schedule(Rest, Date).
+
+% Process operations in a specific room
+process_operations(_Room, [], _Date).
+process_operations(Room, [Operation|Rest], Date) :-
+    room_start_time(Room, Start),
+    StartHours is Start // 60,
+    StartMinutes is Start mod 60,
+    format(atom(Schedule), '~w ~|~`0t~d~2|:~`0t~d~2|', [Date, StartHours, StartMinutes]),
+    operation_mapping(Operation, UID),
+    op_duration(Operation, Duration, _Priority),
+    operation_request(Operation, _Deadline, _Priority, RecordNumber, StaffId, _Status, _OperationType),
+    uuid(AppointmentId),
+    format(atom(AppointmentQuery),
+           'INSERT INTO Appointements (AppointementId, Schedule, Request, Patient, Staff) VALUES (\'~w\', \'~w\', \'~w\', \'~w\', \'~w\')',
+           [AppointmentId, Schedule, UID, RecordNumber, StaffId]),
+    odbc_query(my_db, AppointmentQuery),
+    End is Start + Duration,
+    EndHours is End // 60,
+    EndMinutes is End mod 60,
+    format(atom(EndTime), '~w ~|~`0t~d~2|:~`0t~d~2|', [Date, EndHours, EndMinutes]),
+    random_between(100000, 999999, SurgeryPhaseId),
+    format(atom(SurgeryPhaseQuery),
+           'INSERT INTO SurgeryPhaseDataModel (Id, RoomNumber, PhaseType, Duration, StartTime, EndTime, AppointementId) VALUES (~w, \'~w\', \'Surgery\', ~w, \'~w\', \'~w\', \'~w\')',
+           [SurgeryPhaseId, Room, Duration, Schedule, EndTime, AppointmentId]),
+    odbc_query(my_db, SurgeryPhaseQuery),
+    NewStart is Start + Duration,
+    retract(room_start_time(Room, _)),
+    assertz(room_start_time(Room, NewStart)),
+    process_operations(Room, Rest, Date).
+
+
+
 
