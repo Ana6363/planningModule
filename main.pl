@@ -3,6 +3,7 @@
 :- use_module(library(http/http_parameters)).
 
 :- consult('geneticDbData.pl'). 
+:- consult('genetic.pl'). 
 
 main :-
     process_date. % Call your main predicate when the program starts
@@ -20,6 +21,14 @@ process_date :-
 
 % Example predicate for processing the date
 genetic :-
+    write("Enter the date (e.g., '2024-11-17'): "), nl,
+    read(Date),
+    geneticDbData:gera(Date,Result),
+    write(Result).
+
+
+    % Example predicate for processing the date
+gerar :-
     write("Enter the date (e.g., '2024-11-17'): "), nl,
     read(Date),
     geneticDbData:gera(Date,Result),
