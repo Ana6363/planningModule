@@ -153,10 +153,6 @@ load_original_free_slots :-
     assert(free_slots('R005', 480, 1000)),
     assert(free_slots('R006', 1000, 1200)).
 
-
-% operation_requests(NOps).
-operation_requests(100).
-
 % parameteriza  o
 inicializa:-write('Numero de novas Geracoes: '),read(NG), 			(retract(geracoes(_));true), asserta(geracoes(NG)),
 	write('Dimensao da Populacao: '),read(DP),
@@ -421,21 +417,6 @@ reatribuir_avaliacoes([Ind*_|RestPesos], Restantes, [Ind*Eval|RestReatribuido]) 
     member(Ind*Eval, Restantes),
     reatribuir_avaliacoes(RestPesos, Restantes, RestReatribuido).
 
-
-gerar_pontos_cruzamento(P1,P2):-
-	gerar_pontos_cruzamento1(P1,P2).
-
-gerar_pontos_cruzamento1(P1,P2):-
-	operation_requests(N),
-	NTemp is N+1,
-	random(1,NTemp,P11),
-	random(1,NTemp,P21),
-	P11\==P21,!,
-	((P11<P21,!,P1=P11,P2=P21);(P1=P21,P2=P11)).
-gerar_pontos_cruzamento1(P1,P2):-
-	gerar_pontos_cruzamento1(P1,P2).
-
-
 % Perform crossover for the entire population
 cruzamento([], []).  % No individuals left
 cruzamento([Ind], [Ind]).  % Only one individual left, no crossover
@@ -504,77 +485,6 @@ handle_swap(Op1, Op2, Elem1, Elem2, _Point, Rest1, Rest2, NumSwaps, NewOp1, NewO
     RemainingSwaps is NumSwaps - 1,  % Decrement the swap counter
     swap_multiple_points(TempOp1, TempOp2, RemainingSwaps, NewOp1, NewOp2).
 
-
-preencheh([], []).
-
-preencheh([_|R1], [h|R2]) :-
-    preencheh(R1, R2).
-
-
-
-sublista(L1,I1,I2,L):-
-	I1 < I2,!,
-	sublista1(L1,I1,I2,L).
-
-sublista(L1,I1,I2,L):-
-	sublista1(L1,I2,I1,L).
-
-sublista1([X|R1],1,1,[X|H]):-!,
-	preencheh(R1,H).
-
-sublista1([X|R1],1,N2,[X|R2]):-!,
-	N3 is N2 - 1,
-	sublista1(R1,1,N3,R2).
-
-sublista1([_|R1],N1,N2,[h|R2]):-
-	N3 is N1 - 1,
-	N4 is N2 - 1,
-	sublista1(R1,N3,N4,R2).
-
-rotate_right(L,K,L1):-
-	operation_requests(N),
-	T is N - K,
-	rr(T,L,L1).
-
-rr(0,L,L):-!.
-
-rr(N,[X|R],R2):-
-	N1 is N - 1,
-	append(R,[X],R1),
-	rr(N1,R1,R2).
-
-
-elimina([],_,[]):-!.
-
-elimina([X|R1],L,[X|R2]):-
-	not(member(X,L)),!,
-	elimina(R1,L,R2).
-
-elimina([_|R1],L,R2):-
-	elimina(R1,L,R2).
-
-insere([],L,_,L):-!.
-insere([X|R],L,N,L2):-
-	operation_requests(T),
-	((N>T,!,N1 is N mod T);N1 = N),
-	insere1(X,N1,L,L1),
-	N2 is N + 1,
-	insere(R,L1,N2,L2).
-
-
-insere1(X,1,L,[X|L]):-!.
-insere1(X,N,[Y|L],[Y|L1]):-
-	N1 is N-1,
-	insere1(X,N1,L,L1).
-
-
-eliminah([],[]).
-
-eliminah([h|R1],R2):-!,
-	eliminah(R1,R2).
-
-eliminah([X|R1],[X|R2]):-
-	eliminah(R1,R2).
 
 strip_weights([], []). % Base case: empty list
 strip_weights([Ind*Weight | Rest], [Ind | StrippedRest]) :-
